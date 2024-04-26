@@ -133,13 +133,9 @@ def main(args):
                 base = os.path.basename(gen_file).replace(".wav", "")
                 gen_out = os.path.join(output_path, f"{base}_up.wav")
                 gt_out = os.path.join(output_path, f"{base}_orig.wav")
-                # Save audio in 16-bit PCM format using torchaudio
-                torchaudio.save(
-                    gen_out, gen, sample_rate=args.target_sr, bits_per_sample=16
-                )
-                torchaudio.save(
-                    gt_out, gt, sample_rate=args.target_sr, bits_per_sample=16
-                )
+                # Copy the audio files to the output directory
+                os.system(f"cp {gen_file} {gen_out}")
+                os.system(f"cp {gt_file} {gt_out}")
 
             snr = torch.stack(snr_list, dim=0).mean()
             lsd = torch.stack(lsd_list, dim=0).mean()

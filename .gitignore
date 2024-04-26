@@ -1,3 +1,7 @@
+__pycache__
 VCTK-Corpus-0.92
 dataset
 logs
+
+outputs
+test_samples

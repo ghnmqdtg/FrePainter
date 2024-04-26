@@ -135,7 +135,11 @@ def prep(rank, d_loader, args, target_sr):
                     )
 
                 d_mel = mel_spectrogram_torch(
-                    torch.FloatTensor(d_audio).cuda(rank).unsqueeze(0) if args.cuda else torch.FloatTensor(d_audio).unsqueeze(0),
+                    (
+                        torch.FloatTensor(d_audio).cuda(rank).unsqueeze(0)
+                        if args.cuda
+                        else torch.FloatTensor(d_audio).unsqueeze(0)
+                    ),
                     n_fft=2048,
                     num_mels=128,
                     sampling_rate=24000,
@@ -176,7 +180,10 @@ if __name__ == "__main__":
         "-s", "--samplerate", default=24000, help="Target sampling rate"
     )
     parser.add_argument(
-        "-t", "--test_samplerates", default="2000|4000|8000|12000|16000|24000"
+        # "-t", "--test_samplerates", default="2000|4000|8000|12000|16000|24000"
+        "-t",
+        "--test_samplerates",
+        default="8000|12000|16000|24000",
     )
     parser.add_argument(
         "-cuda", "--cuda", default=False, help="Use cuda for processing"

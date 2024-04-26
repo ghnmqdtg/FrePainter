@@ -64,11 +64,11 @@ CUDA_VISIBLE_DEVICES=0,1 python inference_for_test.py -m $FT_MODEL_NAME -d $TEST
 
 ```
 sh download_checkpoint.sh
-MODEL_NAME=pt_rd_80_ft_ub_mrv2
-DATA_DIR=[Directory or audio file]
-OUTPUT_DIR=[output directory]
-EXT=wav
-CUDA_VISIBLE_DEVICES=0,1 python inference_from_audio.py -m $MODEL_NAME -d $DATA_DIR -o $OUTPUT_DIR -e $EXT
+MODEL_NAME=pt_rd_80_ft_ub_mrv2 \
+DATA_DIR=./dataset/testset/source_wavs/8000 \
+OUTPUT_DIR=./test_samples/48000/8000 \
+EXT=wav \
+CUDA_VISIBLE_DEVICES=0 python inference_from_audio.py -m $MODEL_NAME -d $DATA_DIR -o $OUTPUT_DIR -e $EXT
 ```
 ## Referece
 - https://github.com/rishikksh20/AudioMAE-pytorch

@@ -19,25 +19,30 @@ import soundfile as sf
 
 
 def main(args):
-    n_gpus = torch.cuda.device_count()
     os.environ["MASTER_ADDR"] = "localhost"
     port = 60000 + rdint(0, 1000)
     os.environ["MASTER_PORT"] = str(port)
 
-    mp.spawn(run, nprocs=n_gpus, args=(n_gpus, args))
+    if args.cuda:
+        n_gpus = torch.cuda.device_count()
+        mp.spawn(run, nprocs=n_gpus, args=(n_gpus, args))
+    else:
+        run(0, 0, args)
 
 
 def run(rank, n_gpus, args):
-    dist.init_process_group(
-        backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
-    )
-    torch.manual_seed(1234)
-    torch.cuda.set_device(rank)
-
     dset = DLoader(args)
-    d_sampler = torch.utils.data.distributed.DistributedSampler(
-        dset, num_replicas=n_gpus, rank=rank, shuffle=True
-    )
+
+    if args.cuda:
+        dist.init_process_group(
+            backend="nccl", init_method="env://", world_size=n_gpus, rank=rank
+        )
+        torch.manual_seed(1234)
+        torch.cuda.set_device(rank)
+        d_sampler = torch.utils.data.distributed.DistributedSampler(
+            dset, num_replicas=n_gpus, rank=rank, shuffle=True
+        )
+
     collate_fn = Collate()
     d_loader = DataLoader(
         dset,
@@ -47,7 +52,7 @@ def run(rank, n_gpus, args):
         pin_memory=True,
         drop_last=False,
         collate_fn=collate_fn,
-        sampler=d_sampler,
+        sampler=d_sampler if args.cuda else None,
     )
 
     prep(rank, d_loader, args, args.samplerate)
@@ -130,7 +135,7 @@ def prep(rank, d_loader, args, target_sr):
                     )
 
                 d_mel = mel_spectrogram_torch(
-                    torch.FloatTensor(d_audio).cuda(rank).unsqueeze(0),
+                    torch.FloatTensor(d_audio).cuda(rank).unsqueeze(0) if args.cuda else torch.FloatTensor(d_audio).unsqueeze(0),
                     n_fft=2048,
                     num_mels=128,
                     sampling_rate=24000,
@@ -172,6 +177,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-t", "--test_samplerates", default="2000|4000|8000|12000|16000|24000"
+    )
+    parser.add_argument(
+        "-cuda", "--cuda", default=False, help="Use cuda for processing"
     )
     a = parser.parse_args()
 

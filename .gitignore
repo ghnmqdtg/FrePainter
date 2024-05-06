@@ -3,5 +3,6 @@ VCTK-Corpus-0.92
 dataset
 logs
 
+*.out
 outputs
 test_samples

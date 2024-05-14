@@ -30,6 +30,11 @@ from scipy.signal import resample_poly
 import librosa
 import numpy as np
 
+from copy import deepcopy
+from fvcore.nn import flop_count, parameter_count
+from torchinfo import summary
+
+
 torch.backends.cudnn.benchmark = True
 global_step = 0
 
@@ -134,6 +139,8 @@ def run(rank, n_gpus, hps):
     del pt_encoder
     utils.load_checkpoint(hps.ckpt_file, net_g, None)
 
+    # compute_flops(net_g, eval_loader)
+
     synthesize(rank, net_g, eval_loader, hps.data, pp)
 
 
@@ -171,10 +178,40 @@ def synthesize(rank, generator, eval_loader, hps, pp):
 
         print(f"RTF: {rtf:.3f}, RTF reciprocal: {rtf_reciprocal:.3f}")
 
+        os.makedirs(os.path.dirname(names), exist_ok=True)
+        sf.write(names, y_hat_pp, samplerate=hps.sampling_rate)
 
 
-            os.makedirs(os.path.dirname(names), exist_ok=True)
-            sf.write(names, y_hat_pp, samplerate=hps.sampling_rate)
+def compute_flops(model, data_loader):
+    # Remember to set infer() in SynthesizerTrn() to be forward() in models_ft.py
+    supported_ops = {
+        "aten::silu": None,  # as relu is in _IGNORED_OPS
+        "aten::gelu": None,  # as relu is in _IGNORED_OPS
+        "aten::neg": None,  # as relu is in _IGNORED_OPS
+        "aten::exp": None,  # as relu is in _IGNORED_OPS
+        "aten::flip": None,  # as permute is in _IGNORED_OPS
+    }
+
+    model.cuda().eval()
+
+    (mel, mel_lengths, src_audio, names) = next(iter(data_loader))
+    mel, mel_lengths, src_audio = mel.cuda(), mel_lengths.cuda(), src_audio.cuda()
+
+    params = parameter_count(model)[""]
+    Gflops, unsupported = flop_count(
+        model=model,
+        inputs=(mel, mel_lengths),
+        supported_ops=supported_ops,
+    )
+    statics = summary(
+        model,
+        input_data=[mel, mel_lengths],
+        verbose=0,
+    )
+    del model
+    torch.cuda.empty_cache()
+
+    print(f"{statics}\nparams {params/1e6:.2f}M, GFLOPs {sum(Gflops.values()):.2f}\n")
 
 
 if __name__ == "__main__":

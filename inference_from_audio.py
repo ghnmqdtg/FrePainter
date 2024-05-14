@@ -6,6 +6,7 @@ import torch.distributed as dist
 from torch import nn
 from tqdm import tqdm
 import utils
+import time
 
 from data_utils import (
     InferenceAudioMelLoader,
@@ -138,10 +139,12 @@ def run(rank, n_gpus, hps):
 
 def synthesize(rank, generator, eval_loader, hps, pp):
     generator.eval()
+    rtf_list = []
     with torch.no_grad():
         for batch_idx, (mel, mel_lengths, src_audio, names) in enumerate(
             tqdm(eval_loader)
         ):
+            start_time = time.time()
             mel, mel_lengths = mel.cuda(rank), mel_lengths.cuda(rank)
             src_audio = src_audio.cuda(rank)
             audio_lengths = mel_lengths * hps.sampling_rate / 80
@@ -158,6 +161,17 @@ def synthesize(rank, generator, eval_loader, hps, pp):
             )
 
             y_hat_pp = (y_hat_pp * 32768).squeeze().cpu().numpy().astype("int16")
+            run_time = time.time() - start_time
+            rtf_list.append(run_time / (len(y_hat_pp) / hps.sampling_rate))
+
+            # os.makedirs(os.path.dirname(names), exist_ok=True)
+            # sf.write(names, y_hat_pp, samplerate=hps.sampling_rate)
+        rtf = torch.tensor(rtf_list).mean()
+        rtf_reciprocal = 1 / rtf
+
+        print(f"RTF: {rtf:.3f}, RTF reciprocal: {rtf_reciprocal:.3f}")
+
+
 
             os.makedirs(os.path.dirname(names), exist_ok=True)
             sf.write(names, y_hat_pp, samplerate=hps.sampling_rate)
